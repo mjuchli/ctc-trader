@@ -49,17 +49,18 @@ class Trader:
         plt.show()
         #plt.pause(10)
 
-    def backtest(self):
+    def backtest(self, plot = False):
         data = self.stream.get()
         cp = CandleProcessor(data, self.candleSize, self.LB)
         X, Y, scalerX, scalerY = cp.get_data_set(scaled = True)
         X_train, X_test, y_train, y_test = cp.non_shuffling_train_test_split(X, Y, test_size=0.01)
-        mdl = nn.createModelStandard(X_train, y_train, epochs = 100, batch_size = 200)
+        mdl = nn.createModelStandard(X_train, y_train, epochs = 20, batch_size = 200)
         pred = scalerY.inverse_transform(mdl.predict(X_test)).flatten()
         y_test = scalerY.inverse_transform(y_test).tolist()
         y_train = scalerY.inverse_transform(y_train).tolist()
 
-        self.plot_graph(y_train, y_test, pred)
+        if plot:
+            self.plot_graph(y_train, y_test, pred)
 
         for i in range(0, len(pred)-1):
             self.strategy.decide(y_test[i], pred[i], verbose=False)
@@ -69,60 +70,59 @@ class Trader:
         X, Y, scalerX, scalerY = cp.get_data_set(scaled = True)
         lastKnown = (cp.get_feature_set())[-1]
         print "Train on: " + str(X.shape)
-        mdl = nn.createModelStandard(X, Y, epochs = 100, batch_size = 200)
+        mdl = nn.createModelStandard(X, Y, epochs = 20, batch_size = 200)
         return mdl, scalerX, scalerY, lastKnown, X, Y
 
     def run(self):
         data = self.stream.get()
         cp = CandleProcessor(data, self.candleSize, self.LB)
         mdl, scalerX, scalerY, lastKnown, X, Y = self.train(cp)
-
-        X_unlabelled, Y_unlabelled, _, _ = cp.get_data_set_unlablled(scaled=True)
-        predict = scalerY.inverse_transform(mdl.predict(X_unlabelled)).flatten().tolist()
-
-        #scalerX.inverse_transform(lastX[0])
-        Ytrain = (np.squeeze(scalerY.inverse_transform(Y))).tolist()
-        Ypredict = [None for x in range(len(Ytrain))] + predict
-        self.plot_graph(None, Ytrain, Ypredict)
-
         print "Train until candle: " + str(lastKnown)
+
+        #plot
+        # X_unlabelled, Y_unlabelled, _, _ = cp.get_data_set_unlablled(scaled=True)
+        # predict = scalerY.inverse_transform(mdl.predict(X_unlabelled)).flatten().tolist()
+        #Ytrain = (np.squeeze(scalerY.inverse_transform(Y))).tolist()
+        #Ypredict = [None for x in range(len(Ytrain))] + predict
+        #self.plot_graph(None, Ytrain, Ypredict)
+
         retrainCount = 0
+        lastKnown = []
         while True:
             new_data = self.stream.get()
             cp_new = CandleProcessor(new_data, self.candleSize, self.LB)
-            last = cp_new.get_feature_set()
-            if set(lastKnown) == set(last[-1]):
+            lastCandle = (cp_new.get_feature_set())[-1]
+            if set(lastKnown) == set(lastCandle):
                 print "Candle not updated yet"
             else:
-                print "New candle: " + str(last[-1])
-                #lastX, lastY = d.create_dataset(scalerX.transform(last), LB, False)
-                lastX, lastY, _, _ = cp_new.get_data_set(scaled=False)
-                predict = mdl.predict(lastX).tolist()
-                print "Prediction next price: " + str(scalerY.inverse_transform(predict))
-                Ytrain = Ytrain + [((last[-1])[0])]
-                Ypredict = Ypredict + ((scalerY.inverse_transform(predict)).tolist())[0]
+                print "New candle: " + str(lastCandle)
+                lastKnownPrice = lastCandle[0]
+                lastX, lastY, _, _ = cp.get_data_set_unlablled(scaled=True)
+                predict = scalerY.inverse_transform(mdl.predict(lastX)).flatten().tolist()
+                print "Prediction next price: " + str(predict[-1])
 
-                plot_graph(Ytrain, Ypredict)
+                self.strategy.decide(lastKnownPrice, predict[-1], verbose=True)
 
                 retrainCount = retrainCount + 1
-                if retrainCount >= retrainWait:
+                if retrainCount >= self.retrainWait:
                     retrainCount = 0
                     data = self.stream.get()
                     cp = CandleProcessor(data, self.candleSize, self.LB)
                     mdl, scalerX, scalerY, lastKnown, X, Y = self.train(cp)
                     print "Train until candle: " + str(lastKnown)
 
-            lastKnown = last[-1]
+            lastKnown = lastCandle
             time.sleep(10)
 
-cs = CandleStream(m.BitstampCandle, 1000)
-e = ExecutorMock(crypto=0.0, fiat=1000.0, market="BTC/EUR")
-r = Reporter()
+cs = CandleStream(m.GdaxCandle, 1000)
+e = ExecutorMock(crypto=0.0, fiat=1000.0, market="BTC/USD")
+r = Reporter("trades.tsv")
 r.setup(crypto=0.0, fiat=1000.0)
 e.setReporter(r)
 s = strategy.Strategy(executor=e)
 
 trader = Trader(cs, e, s)
-trader.backtest()
+#trader.backtest(plot = False)
+trader.run()
 print r.getTrades()
 print e.getAccountBalance()

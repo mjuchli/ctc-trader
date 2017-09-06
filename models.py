@@ -81,14 +81,14 @@ class Trade(MySQLModel):
 class GdaxTrade(Trade):
     exchange = "GDAX"
     class Meta:
-        db_table = 'exch_gdax_btcusd_snapshot_20170718'
+        db_table = 'exch_gdax_btcusd_snapshot_20170822'
 
 class BitfinexTrade(Trade):
     exchange = "Bitfinex"
     class Meta:
-        db_table = 'exch_bitfinex_btcusd_snapshot_20170718'
+        db_table = 'exch_bitfinex_btcusd_snapshot_20170822'
 
 class BitstampTrade(Trade):
     exchange = "Bitstamp"
     class Meta:
-        db_table = 'exch_bitstamp_btcusd_snapshot_20170718'
+        db_table = 'exch_bitstamp_btcusd_snapshot_20170822'
