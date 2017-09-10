@@ -44,7 +44,8 @@ class BitstampCandle(Candle):
 
 class GdaxCandle(Candle):
     class Meta:
-        db_table = 'exch_gdax_btcusd_candles_900_shifted'
+        #db_table = 'exch_gdax_btceur_candles_900_shifted'
+        db_table = 'exch_gdax_btceur_candles_60'
 
 class Trade(MySQLModel):
     a1 = pw.DecimalField(null=True)
@@ -81,14 +82,14 @@ class Trade(MySQLModel):
 class GdaxTrade(Trade):
     exchange = "GDAX"
     class Meta:
-        db_table = 'exch_gdax_btcusd_snapshot_20170822'
+        db_table = 'exch_gdax_btceur_snapshot_20170910'
 
 class BitfinexTrade(Trade):
     exchange = "Bitfinex"
     class Meta:
-        db_table = 'exch_bitfinex_btcusd_snapshot_20170822'
+        db_table = 'exch_bitfinex_btcusd_snapshot_20170910'
 
 class BitstampTrade(Trade):
     exchange = "Bitstamp"
     class Meta:
-        db_table = 'exch_bitstamp_btcusd_snapshot_20170822'
+        db_table = 'exch_bitstamp_btcusd_snapshot_20170910'

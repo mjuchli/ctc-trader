@@ -1,7 +1,6 @@
 import ccxt
-import os
-from enum import Enum
-from datetime import datetime
+from order_type import *
+from trade import *
 
 class Executor:
     def __init__(self):
@@ -71,68 +70,6 @@ class Executor:
 # print e.buy()
 # print e.getAccountBalance()
 
-class OrderType(Enum):
-    BUY = 'buy'
-    SELL = 'sell'
-
-class Trade:
-    def __init__(self, orderType, cty, price, fee):
-        self.orderType = orderType
-        self.cty = cty
-        self.price = price
-        self.fee = fee
-        self.timestamp = str(datetime.now()).split('.')[0] #datetime.utcnow()
-
-    def __str__(self):
-        return str(self.orderType) + ": " + str(self.cty) + " for " + str(self.price)
-
-    def getType(self):
-        return self.orderType
-
-    def getCty(self):
-        return self.cty
-
-    def getPrice(self):
-        return self.price
-
-    def getFee(self):
-        return self.fee
-
-class Reporter:
-    def __init__(self, fileName):
-        self.trades = []
-        self.fileName = fileName
-
-    def setup(self, crypto, fiat):
-        self.crypto = crypto
-        self.fiat = fiat
-
-    def getTrades(self):
-        return self.trades
-
-    def reportTrade(self, trade):
-        self.write(trade)
-        self.trades.append(trade)
-
-    def write(self, trade):
-        f = open(self.fileName, "a")
-        tradeId = str(len(self.trades) + 1)
-        f.write(
-                tradeId + '\t' +
-                str(trade.timestamp) + '\t' +
-                str(trade.getType()) + '\t' +
-                str(trade.getCty()) + '\t' +
-                str(trade.getPrice()) + '\t' +
-                str(trade.getFee()) + '\t'
-                )
-        if self.trades and trade.getType() == OrderType.SELL:
-            lastTrade = self.trades[-1]
-            profit = trade.getCty() * trade.getPrice() - lastTrade.getCty() * lastTrade.getPrice()
-            profitNet = trade.getCty() * trade.getPrice() - lastTrade.getCty() * lastTrade.getPrice() - lastTrade.getFee() - trade.getFee()
-            f.write(str(profit) + '\t' + str(profitNet))
-
-        f.write('\n')
-        f.close()
 
 class ExecutorMock(Executor):
     def __init__(self, crypto, fiat, market, fee = 0.0025):
@@ -156,7 +93,7 @@ class ExecutorMock(Executor):
     def buy(self, price, pc = 1.0):
         amount = self.getAvailableFiat()
         cty = pc * (amount / price) * (1-self.fee)
-        fee = pc * (amount / price) * self.fee
+        fee = pc * amount * self.fee
         self.balance['fiat'] = amount - pc * amount
         self.balance['balance'] = self.balance['balance'] + cty
         self.balance['available'] = self.balance['balance']

@@ -8,24 +8,12 @@ import validation as v
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 import time
-from multiprocessing import Process
 from candle_processor import *
 from executor import *
 from sklearn.model_selection import train_test_split
 import strategy
-
-class CandleStream:
-    def __init__(self, candleClass, limit = 0):
-        self.candleClass = candleClass
-        self.limit = limit
-        self.size = 15
-
-    def getSize(self):
-        return self.size
-
-    def get(self):
-        return (self.candleClass.select().order_by(self.candleClass.id.desc()).limit(self.limit))[::-1]
-
+from candle_stream import *
+from reporter import *
 
 class Trader:
     def __init__(self, stream, executor, strategy):
@@ -33,8 +21,22 @@ class Trader:
         self.executor = executor
         self.strategy = strategy
         self.candleSize = self.stream.getSize() # number of accumulated 1-minute candles
-        self.retrainWait = 5 # minutes (e.g. candles) to wait until model retrain
-        self.LB = 10
+        self.setup() # DEFAULTS
+
+    def setup(self,
+              retrainWait = 5, # minutes (e.g. candles) to wait until model retrain
+              decisionWait = 1,
+              LB = 5,
+              testSize = 0.01,
+              epochs = 100,
+              batchSize = 200):
+        self.retrainWait = retrainWait
+        self.decisionWait = decisionWait
+        self.LB = LB
+        self.testSize = testSize
+        self.epochs = epochs
+        self.batchSize = batchSize
+
 
     def plot_graph(self, Ytrain, Ytest, Ypredict):
         plt.clf()
@@ -53,8 +55,8 @@ class Trader:
         data = self.stream.get()
         cp = CandleProcessor(data, self.candleSize, self.LB)
         X, Y, scalerX, scalerY = cp.get_data_set(scaled = True)
-        X_train, X_test, y_train, y_test = cp.non_shuffling_train_test_split(X, Y, test_size=0.01)
-        mdl = nn.createModelStandard(X_train, y_train, epochs = 20, batch_size = 200)
+        X_train, X_test, y_train, y_test = cp.non_shuffling_train_test_split(X, Y, test_size=self.testSize)
+        mdl = nn.createModelStandard(X_train, y_train, epochs = self.epochs, batch_size = self.batchSize)
         pred = scalerY.inverse_transform(mdl.predict(X_test)).flatten()
         y_test = scalerY.inverse_transform(y_test).tolist()
         y_train = scalerY.inverse_transform(y_train).tolist()
@@ -70,7 +72,7 @@ class Trader:
         X, Y, scalerX, scalerY = cp.get_data_set(scaled = True)
         lastKnown = (cp.get_feature_set())[-1]
         print "Train on: " + str(X.shape)
-        mdl = nn.createModelStandard(X, Y, epochs = 20, batch_size = 200)
+        mdl = nn.createModelStandard(X, Y, epochs = self.epochs, batch_size = self.batchSize)
         return mdl, scalerX, scalerY, lastKnown, X, Y
 
     def run(self):
@@ -86,6 +88,7 @@ class Trader:
         #Ypredict = [None for x in range(len(Ytrain))] + predict
         #self.plot_graph(None, Ytrain, Ypredict)
 
+        decisionWait = self.decisionWait
         retrainCount = 0
         lastKnown = []
         while True:
@@ -101,7 +104,10 @@ class Trader:
                 predict = scalerY.inverse_transform(mdl.predict(lastX)).flatten().tolist()
                 print "Prediction next price: " + str(predict[-1])
 
-                self.strategy.decide(lastKnownPrice, predict[-1], verbose=True)
+                decisionWait = decisionWait + 1
+                if decisionWait >= self.decisionWait:
+                    self.strategy.decide(lastKnownPrice, predict[-1], verbose=True)
+                    decisionWait = 0
 
                 retrainCount = retrainCount + 1
                 if retrainCount >= self.retrainWait:
@@ -114,15 +120,16 @@ class Trader:
             lastKnown = lastCandle
             time.sleep(10)
 
-cs = CandleStream(m.GdaxCandle, 1000)
-e = ExecutorMock(crypto=0.0, fiat=1000.0, market="BTC/USD")
-r = Reporter("trades.tsv")
+cs = CandleStream(m.BitfinexCandle, limit = 5000, size = 1)
+e = ExecutorMock(crypto=0.0, fiat=1000.0, market="BTC/EUR")
+r = Reporter("trades-2.tsv")
 r.setup(crypto=0.0, fiat=1000.0)
 e.setReporter(r)
 s = strategy.Strategy(executor=e)
 
 trader = Trader(cs, e, s)
-#trader.backtest(plot = False)
-trader.run()
+trader.setup(retrainWait = 5, decisionWait = 1, LB = 5, testSize = 0.7, epochs = 100, batchSize = 50)
+trader.backtest(plot = False)
+#trader.run()
 print r.getTrades()
 print e.getAccountBalance()
