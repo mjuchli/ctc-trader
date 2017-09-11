@@ -63,8 +63,38 @@ class CandleProcessor:
         ys = [x[0] for x in self.get_feature_set()]
         if scaled:
             return self.scale(ys)
-        else:
-            return ys
+        return ys
+
+    def get_y_direction(self, shift = 1):
+        """label according to direction change
+        0:  same price as last candle
+        1:  price greater than last candle closing price
+        -1: price smaller than last candle closing price
+        """
+        ys = [x[0] for x in self.get_feature_set()]
+        ysd = [0]
+        for i in range(0, len(ys)-shift):
+            if ys[i+shift] > ys[i]:
+                ysd.append(1)
+            elif ys[i+shift] == ys[i]:
+                ysd.append(0)
+            else:
+                ysd.append(-1)
+        return ysd
+
+    def get_y_direction_1pc(self, shift = 0):
+        """more than 1 percent direction change, see get_y_direction for return"""
+        ys = [x[0] for x in self.get_feature_set()]
+        ysd = [0]
+        for i in range(0, len(ys)-1-shift):
+            pc = float(ys[i+shift]) / float(ys[i])
+            if pc >= 1.01:
+                ysd.append(1)
+            elif pc <= 0.99:
+                ysd.append(-1)
+            else:
+                ysd.append(0)
+        return ysd
 
     def scale(self, xs):
         if self.scaler:
