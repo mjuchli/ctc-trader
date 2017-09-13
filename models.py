@@ -44,8 +44,15 @@ class BitstampCandle(Candle):
 
 class GdaxCandle(Candle):
     class Meta:
-        #db_table = 'exch_gdax_btceur_candles_900_shifted'
         db_table = 'exch_gdax_btceur_candles_60'
+
+class GdaxCandle15(Candle):
+    class Meta:
+        db_table = 'exch_gdax_btceur_candles_900_shifted'
+
+class GdaxCandle60(Candle):
+    class Meta:
+        db_table = 'exch_gdax_btceur_candles_3600_shifted'
 
 class Trade(MySQLModel):
     a1 = pw.DecimalField(null=True)

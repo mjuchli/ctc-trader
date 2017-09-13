@@ -39,7 +39,14 @@ class CandleProcessor:
                       float(x.high),
                       float(x.low),
                       float(x.trades),
-                      float(x.volume)] for x in self.candles]
+                      float(x.volume)
+                      # mean price
+                      # last 15m, 30, 45, 1h, 3h, 6h, 1w... price change
+                      # time of the day (normalized time of the day)
+                      # days (binary)
+                      # bid / ask volume
+                      # bid / ask volume since Xmin
+                      ] for x in self.candles]
         return np.array(dataArray)
 
     def get_data_set(self, scaled = False, labelled = True):
