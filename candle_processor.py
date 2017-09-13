@@ -1,5 +1,12 @@
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from enum import Enum
+
+class LabelType(Enum):
+    NoLabel = 'No label'
+    ClosingPrice = 'Closing Price'
+    Direction = 'Direction change'
+    Direction1Pc = 'Direction 1%'
 
 class CandleProcessor:
     def __init__(self, candles, candle_size, look_back):
@@ -16,9 +23,9 @@ class CandleProcessor:
         return X_train, X_test, y_train, y_test
 
     # convert an array of values into a dataset matrix
-    def features_to_data_set(self, features, labelled=True):
+    def features_to_data_set(self, features, labels=[]):
         dataX, dataY = [], []
-        if labelled:
+        if labels:
             assert len(features) >= self.look_back + self.candle_size, "Dataset smaller than look_back + candle_size"
             r = range(len(features)-(self.look_back)-self.candle_size)
         else:
@@ -27,8 +34,8 @@ class CandleProcessor:
         for i in r:
             a = features[i:(i+self.look_back), :]
             dataX.append(a)
-            if labelled:
-                dataY.append(features[i + self.look_back + self.candle_size-1, 0])
+            if labels:
+                dataY.append(labels[i + self.look_back + self.candle_size-1])
             else:
                 dataY.append(None)
         return np.array(dataX), np.array(dataY)
@@ -49,52 +56,70 @@ class CandleProcessor:
                       ] for x in self.candles]
         return np.array(dataArray)
 
-    def get_data_set(self, scaled = False, labelled = True):
+    def get_data_set(self, scaled = False, labelType = LabelType.ClosingPrice):
+        features = self.get_feature_set()
+        labels = self.get_y(labelType)
+
         if scaled:
-            features, scalerX = self.scale(self.get_feature_set())
-            X, Y = self.features_to_data_set(features, labelled)
-            _, scalerY = self.get_y(True)
+            features, scalerX = self.scale(features)
+            if labelType == LabelType.ClosingPrice:
+                labels, scalerY = self.scale(labels)
+                labels = labels.tolist()
+            else:
+                scalerY = None
         else:
             scalerX = None
             scalerY = None
-            X, Y = self.features_to_data_set(self.get_feature_set(), labelled)
+
+        X, Y = self.features_to_data_set(features, labels)
         return (X, Y, scalerX, scalerY)
 
     def get_data_set_unlablled(self, scaled = False):
-        X_labelled, _, _, _ = self.get_data_set(scaled, labelled = True)
+        """ Reduced data set as samples are skipped for which no labels exist. """
+        X_labelled, _, _, _ = self.get_data_set(scaled, LabelType.ClosingPrice)
         idx = len(X_labelled)
-        (X, Y, scalerX, scalerY) = self.get_data_set(scaled, labelled = False)
+        (X, Y, scalerX, scalerY) = self.get_data_set(scaled, LabelType.NoLabel)
         return (X[idx:], Y[idx:], scalerX, scalerY)
 
-    def get_y(self, scaled = False):
+    def get_y(self, labelType):
+        if labelType == LabelType.NoLabel:
+            labels = []
+        elif labelType == LabelType.ClosingPrice:
+            labels = self.get_y_closing()
+        elif labelType == LabelType.Direction:
+            labels = self.get_y_direction()
+        elif labelType == LabelType.Direction1Pc:
+            labels = self.get_y_direction_1pc()
+        return labels
+
+    def get_y_closing(self):
+        """ Closing Price as label """
         ys = [x[0] for x in self.get_feature_set()]
-        if scaled:
-            return self.scale(ys)
         return ys
 
-    def get_y_direction(self, shift = 1):
+    def get_y_direction(self):
         """label according to direction change
         0:  same price as last candle
         1:  price greater than last candle closing price
         -1: price smaller than last candle closing price
         """
-        ys = [x[0] for x in self.get_feature_set()]
+        ys = self.get_y_closing()
         ysd = [0]
-        for i in range(0, len(ys)-shift):
-            if ys[i+shift] > ys[i]:
+        for i in range(0, len(ys)-1):
+            if ys[i+1] > ys[i]:
                 ysd.append(1)
-            elif ys[i+shift] == ys[i]:
-                ysd.append(0)
+            # elif ys[i+1] == ys[i]:
+            #     ysd.append(0)
             else:
                 ysd.append(-1)
         return ysd
 
-    def get_y_direction_1pc(self, shift = 0):
+    def get_y_direction_1pc(self):
         """more than 1 percent direction change, see get_y_direction for return"""
-        ys = [x[0] for x in self.get_feature_set()]
+        ys = self.get_y_closing()
         ysd = [0]
-        for i in range(0, len(ys)-1-shift):
-            pc = float(ys[i+shift]) / float(ys[i])
+        for i in range(0, len(ys)-1):
+            pc = float(ys[i+1]) / float(ys[i])
             if pc >= 1.01:
                 ysd.append(1)
             elif pc <= 0.99:
