@@ -13,7 +13,8 @@ class CandleProcessor:
         self.candles = candles
         self.candle_size = candle_size
         self.look_back = look_back
-        self.scaler = None
+        self.scalerX = None
+        self.scalerY = None
 
     @staticmethod
     def non_shuffling_train_test_split(X, y, test_size=0.1):
@@ -61,9 +62,9 @@ class CandleProcessor:
         labels = self.get_y(labelType)
 
         if scaled:
-            features, scalerX = self.scale(features)
+            features, scalerX = self.scale_x(features)
             if labelType == LabelType.ClosingPrice:
-                labels, scalerY = self.scale(labels)
+                labels, scalerY = self.scale_y(labels)
                 labels = labels.tolist()
             else:
                 scalerY = None
@@ -75,7 +76,7 @@ class CandleProcessor:
         return (X, Y, scalerX, scalerY)
 
     def get_data_set_unlablled(self, scaled = False):
-        """ Reduced data set as samples are skipped for which no labels exist. """
+        """ Reduced data set which contains only samples for which no labels exist yet. """
         X_labelled, _, _, _ = self.get_data_set(scaled, LabelType.ClosingPrice)
         idx = len(X_labelled)
         (X, Y, scalerX, scalerY) = self.get_data_set(scaled, LabelType.NoLabel)
@@ -111,7 +112,7 @@ class CandleProcessor:
             # elif ys[i+1] == ys[i]:
             #     ysd.append(0)
             else:
-                ysd.append(-1)
+                ysd.append(0)
         return ysd
 
     def get_y_direction_1pc(self):
@@ -128,11 +129,20 @@ class CandleProcessor:
                 ysd.append(0)
         return ysd
 
-    def scale(self, xs):
-        if self.scaler:
-            data = self.scaler.fit_transform(xs)
+    def scale_x(self, xs):
+        if self.scalerX:
+            data = self.scalerX.fit_transform(xs)
         else:
             scaler = MinMaxScaler(feature_range=(0, 1))
             data = scaler.fit_transform(xs)
-            self.scaler = scaler
-        return (data, self.scaler)
+            self.scalerX = scaler
+        return (data, self.scalerX)
+
+    def scale_y(self, xs):
+        if self.scalerY:
+            data = self.scalerY.fit_transform(xs)
+        else:
+            scaler = MinMaxScaler(feature_range=(0, 1))
+            data = scaler.fit_transform(xs)
+            self.scalerY = scaler
+        return (data, self.scalerY)
