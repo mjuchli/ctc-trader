@@ -37,22 +37,29 @@ class Trader:
             offset = [None for x in range(len(Ytrain))]
             plt.plot(Ytrain)
             plt.plot(np.array(offset+Ytest))
-            plt.plot(np.array(offset+Ypredict.tolist()), color="red")
+            plt.plot(np.array(offset+Ypredict), color="red")
         else:
             plt.plot(Ytest)
             plt.plot(Ypredict, color="red")
         plt.show()
         #plt.pause(10)
 
-    def backtest(self, plot = False):
+    def backtest(self, plot = False, scaled = True):
         data = self.stream.get()
         cp = CandleProcessor(data, self.candleSize, self.LB)
-        X, Y, scalerX, scalerY = cp.get_data_set(scaled = True)
+        X, Y, scalerX, scalerY = cp.get_data_set(scaled = scaled, labelType = LabelType.ClosingPrice)
         X_train, X_test, y_train, y_test = cp.non_shuffling_train_test_split(X, Y, test_size=self.testSize)
         mdl = nn.createModelStandard(X_train, y_train, epochs = self.epochs, batch_size = self.batchSize)
-        pred = scalerY.inverse_transform(mdl.predict(X_test)).flatten()
-        y_test = scalerY.inverse_transform(y_test).tolist()
-        y_train = scalerY.inverse_transform(y_train).tolist()
+        pred = mdl.predict(X_test)
+        if scalerY:
+            print "inverse transform label"
+            pred = scalerY.inverse_transform(pred).flatten().tolist()
+            y_test = scalerY.inverse_transform(y_test).tolist()
+            y_train = scalerY.inverse_transform(y_train).tolist()
+        else:
+            pred = pred.flatten().tolist()
+            y_test = y_test.tolist()
+            y_train = y_train.tolist()
 
         if plot:
             self.plot_graph(y_train, y_test, pred)
