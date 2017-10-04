@@ -1,10 +1,7 @@
 from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import LSTM
-from keras.layers import SimpleRNN
-from keras.layers import Input
 from keras.models import Model
 from sklearn.linear_model import SGDRegressor
+from keras.layers import Dense, Dropout, LSTM, SimpleRNN, Embedding, Input, TimeDistributed
 
 # create and fit the LSTM network
 # we can build some sort of an interface to try out multiple variants
@@ -16,6 +13,21 @@ def createModelStandard(trainX, trainY, epochs = 10, batch_size = 1000):
     model.add(Dense(int(trainX.shape[1])*int(trainX.shape[2])))
     model.add(Dense(1))
     model.compile(loss='mean_squared_error', optimizer='adam')
+    model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, verbose=2)
+    return model
+
+def createModelBinary(trainX, trainY, epochs = 10, batch_size = 1000):
+    print trainX.shape
+    print trainX
+    model = Sequential()
+    # shape[1] is equivalent to nr. of features
+    # shape[2] is equivalent to look_back
+    model.add(LSTM(int(trainX.shape[1])*int(trainX.shape[2]), input_shape=(trainX.shape[1], 1), return_sequences=True))
+    #model.add(Dense(int(trainX.shape[1])*int(trainX.shape[2])))
+    model.add(TimeDistributed(Dense(1, activation='sigmoid')))
+    model.compile(loss='binary_crossentropy',
+                  optimizer='rmsprop',
+                  metrics=['accuracy'])
     model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, verbose=2)
     return model
 

@@ -1,46 +1,36 @@
 import numpy
 
 class Strategy:
-    def __init__(self, executor, percentInvest = 1.0):
+    def __init__(self, executor, verbose = False):
         self.executor = executor
-        self.percentInvest = percentInvest
+        self.verbose = verbose
 
-    def decide(self, price, predict, verbose = False):
-            if verbose:
-                print "---"
-                print "Price is: " + str(price) + " and next predict is: " + str(predict)
-                if predict > price and self.executor.getAvailableFiat() == 0.0:
-                    print "Hold, since no fiat"
+    def logVerbose(self, msg):
+        if self.verbose:
+            print msg
+
+    def decide(self, price, predict):
+            if self.verbose:
+                self.logVerbose("Price is: " + str(price) + " and next predict is: " + str(predict))
+            if predict > price and self.executor.getAvailableFiat() == 0.0:
+                self.logVerbose("Hold, since no fiat")
             if predict > price and self.executor.getAvailableFiat() > 0.0:
-                if verbose:
-                    print "Buy"
-                if not self.executor.getReporter().getTrades():
-                    self.executor.buy(price, self.percentInvest)
-                else:
-                    self.executor.buy(price)
+                self.logVerbose("Buy")
+                self.executor.buy(price)
             elif predict < price and self.executor.getAvailableCrypto() == 0.0:
-                if verbose:
-                    print "Hold, since no crypto"
+                self.logVerbose("Hold, since no crypto")
             elif predict < price and self.executor.getAvailableCrypto() > 0.0:
-                if verbose:
-                    print "Sell"
-                if not self.executor.getReporter().getTrades():
-                    self.executor.sell(price, self.percentInvest)
-                else:
-                    self.executor.sell(price)
-
+                self.logVerbose("Sell")
+                self.executor.sell(price)
             elif predict == price:
-                if verbose:
-                    print "Predicion eq current Price"
+                self.logVerbose("Predicion eq current Price")
 
-    def closeFiat(self, price, verbose = False):
+    def closeFiat(self, price):
         if self.executor.getAvailableFiat() > 0.0:
-            if verbose:
-                print "Buy remaining"
+            self.logVerbose("Buy remaining")
             self.executor.buy(price)
 
-    def closeCrypto(self, price, verbose = False):
+    def closeCrypto(self, price):
         if self.executor.getAvailableCrypto() > 0.0:
-            if verbose:
-                print "Sell remaining"
+            self.logVerbose("Sell remaining")
             self.executor.sell(price)
