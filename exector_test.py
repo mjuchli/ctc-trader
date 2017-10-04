@@ -49,8 +49,8 @@ class ExecutorTest(unittest.TestCase):
         e = self.getExecutorMock()
         e.buyCty(1, 1000)
         ps = e.getPositions(OrderType.BUY)
-        p = ps[0]
         self.assertEqual(len(ps), 1)
+        p = ps[0]
         self.assertEqual(p.getType(), OrderType.BUY)
         self.assertEqual(p.getCty(), 1)
         self.assertEqual(p.getPrice(), 1000)
