@@ -5,12 +5,15 @@ import reporter as r
 import strategy as s
 import trader as t
 import label_type as lt
+import position_manager as pm
 
 stream = cs.CandleStream(m.GdaxCandle15, size = 1, limit = 1000)
 executor = ex.ExecutorMock(crypto=0.0, fiat=1000.0, market="BTC/EUR")
 reporter = r.Reporter("trades-15.tsv")
 reporter.setup(crypto=0.0, fiat=1000.0)
 executor.setReporter(reporter)
+positionManager = pm.PositionManager(reporter)
+executor.setPositionManager(positionManager)
 strategy = s.Strategy(executor)
 
 trader = t.Trader(stream, executor, strategy)

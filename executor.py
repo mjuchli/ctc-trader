@@ -1,15 +1,14 @@
 import ccxt
 from order_type import *
 from trade import *
-from position import *
+
 class Executor:
     def __init__(self, ctySize = 1):
         self.exchange = ccxt.gdax(self.getConfig())
         self.market = self.exchange.market('BTC/EUR')
         self.account_id = '37a4a4f2-7188-44d5-857e-575ea110f9a5'
         self.reporter = None
-        self.positionsLong = []
-        self.positionsShort = []
+        self.positionManager = None
         self.ctySize = ctySize
 
     def getConfig(self):
@@ -51,53 +50,25 @@ class Executor:
     def getExchange(self):
         return self.exchange
 
+    def getReporter(self):
+        return self.reporter
+
     def setReporter(self, reporter):
         self.reporter = reporter
 
-    def getReporter(self):
-        return self.reporter
+    def getPositionManager(self):
+        return self.positionManager
+
+    def setPositionManager(self, positionManager):
+        self.positionManager = positionManager
+
+    def fillPosition(self, p):
+        if self.positionManager:
+            self.positionManager.fill(p)
 
     def reportTrade(self, trade):
         if self.reporter:
             self.reporter.reportTrade(trade)
-
-    def reportPositionOpen(self, position):
-        if self.reporter:
-            self.reporter.reportPositionOpen(position)
-
-    def reportPositionClose(self, position, oppPosition):
-        if self.reporter:
-            self.reporter.reportPositionClose(position, oppPosition)
-
-    def getPositions(self, t):
-        if t == OrderType.BUY:
-            return self.positionsLong
-        elif t == OrderType.SELL:
-            return self.positionsShort
-
-    def peekPosition(self, t):
-        if t == OrderType.BUY:
-            return self.positionsLong[0]
-        elif t == OrderType.SELL:
-            return self.positionsShort[0]
-
-    def addPosition(self, pos):
-        if pos.getType() == OrderType.BUY:
-            self.positionsLong.append(pos)
-        elif pos.getType() == OrderType.SELL:
-            self.positionsShort.append(pos)
-
-    def insertPosition(self, pos):
-        if pos.getType() == OrderType.BUY:
-            self.positionsLong.insert(0, pos)
-        elif pos.getType() == OrderType.SELL:
-            self.positionsShort.insert(0, pos)
-
-    def popPosition(self, t):
-        if t == OrderType.BUY:
-            return self.positionsLong.pop(0)
-        elif t == OrderType.SELL:
-            return self.positionsShort.pop(0)
 
     def buy(self):
         #amount = self.getAvailable()
@@ -107,36 +78,6 @@ class Executor:
     def sell(self):
         return self.exchange.create_market_sell_order(self.getMarket(), self.getAvailable())
 
-    def fill(self, pos):
-        """ Upon creation of a trade, this internal operation will try to
-            match open position of the opposed side. If an open position of
-            the opposed side exists, the aim is to (partially) fill this
-            position with the new incoming trade.
-        """
-        if not self.getPositions(pos.getTypeOpposite()):
-            self.addPosition(pos)
-            self.reportPositionOpen(pos)
-            return [pos]
-
-        lastPosition = self.peekPosition(pos.getTypeOpposite())
-        if lastPosition.getCty() == pos.getCty():
-            p = self.popPosition(pos.getTypeOpposite())
-            self.reportPositionClose(p, pos)
-            return [p, pos]
-        elif lastPosition.getCty() > pos.getCty():
-            remainingCty = lastPosition.getCty() - pos.getCty()
-            remainingPosition = Position(lastPosition.orderType, remainingCty, lastPosition.getPrice(), lastPosition.getTimeStamp())
-            p = self.popPosition(pos.getTypeOpposite())
-            self.reportPositionClose(p, pos)
-            self.insertPosition(remainingPosition)
-            self.reportPositionOpen(remainingPosition)
-            return [p, pos, remainingPosition]
-        elif lastPosition.getCty() < pos.getCty():
-            remainingCty = pos.getCty() - lastPosition.getCty()
-            newPosition = Position(pos.orderType, remainingCty, pos.getPrice())
-            p = self.popPosition(pos.getTypeOpposite())
-            self.reportPositionClose(p, pos)
-            return [p, pos] + self.fill(newPosition)
 
 class ExecutorMock(Executor):
     def __init__(self, crypto, fiat, market, ctySize = 1, fee = 0.0025):
@@ -148,8 +89,7 @@ class ExecutorMock(Executor):
         self.ctySize = ctySize
         self.fee = fee
         self.reporter = None
-        self.positionsLong = []
-        self.positionsShort = []
+        self.positionManager = None
 
     def getAccountBalance(self):
         return self.balance
@@ -170,7 +110,7 @@ class ExecutorMock(Executor):
         self.balance['balance'] = self.balance['balance'] + cty
         self.balance['available'] = self.balance['balance']
         t = Trade(OrderType.BUY, cty, price, fee)
-        self.fill(t.toPosition())
+        self.fillPosition(t.toPosition())
         self.reportTrade(t)
         return t
 
@@ -184,6 +124,6 @@ class ExecutorMock(Executor):
         self.balance['available'] = self.balance['balance']
         self.balance['fiat'] = self.balance['fiat'] + amount - fee
         t = Trade(OrderType.SELL, cty, price, fee)
-        self.fill(t.toPosition())
+        self.fillPosition(t.toPosition())
         self.reportTrade(t)
         return t
