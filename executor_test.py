@@ -3,7 +3,8 @@ from executor import *
 from trade import *
 from position import *
 from order_type import *
-from position_manager import PositionManager
+from position_manager import PositionManager, PositionDBManager
+from model import db as db
 
 class ExecutorTest(unittest.TestCase):
 
@@ -11,6 +12,7 @@ class ExecutorTest(unittest.TestCase):
         return ExecutorMock(crypto=10.0, fiat=1000.0, market="BTC/EUR", ctySize = 1)
 
     def getExecutorMockWithPM(self):
+        #pm = PositionDBManager(db)
         pm = PositionManager()
         e = self.getExecutorMock()
         e.setPositionManager(pm)

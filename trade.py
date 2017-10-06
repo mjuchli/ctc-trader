@@ -33,7 +33,8 @@ class Trade:
         return self.timestamp
 
     def toPosition(self):
-        return p.Position(orderType = self.getType(),
-                          cty = self.getCty(),
-                          price = self.getPrice(),
-                          timestamp = self.getTimeStamp())
+        return p.Position().create(
+                    orderType = self.getType(),
+                    cty = self.getCty(),
+                    price = self.getPrice(),
+                    timestamp = self.getTimeStamp())

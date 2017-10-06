@@ -9,13 +9,6 @@ myDB = (pw.MySQLDatabase(
             user=os.environ['CTC_CANDLES_USER'],
             passwd=os.environ['CTC_CANDLES_PASSWORD']))
 
-# myDB = (pw.MySQLDatabase(
-#             "bcex",
-#             host="localhost",
-#             port=3306,
-#             user="root",
-#             passwd="password"))
-
 class MySQLModel(pw.Model):
     """A base model that will use our MySQL database"""
     class Meta:
